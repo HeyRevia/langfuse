@@ -282,8 +282,8 @@ export async function fetchLLMCompletion(
     );
 
     const result = await llm.invoke(finalMessages, runConfig);
-    const functionResult = {};
-    result.tool_calls.forEach((toolCall) => {
+    const functionResult: Record<string, any> = {};
+    result.tool_calls?.forEach((toolCall) => {
       functionResult[toolCall.name] = toolCall.args;
     });
 
