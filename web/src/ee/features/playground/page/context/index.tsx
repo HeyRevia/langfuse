@@ -5,6 +5,7 @@ import React, {
   useContext,
   useEffect,
   useState,
+  useRef,
 } from "react";
 
 import { v4 as uuidv4 } from "uuid";
@@ -22,6 +23,7 @@ import {
   type ChatMessageWithId,
   type PromptVariable,
   type UIModelParams,
+  type LLMFunctionCall,
 } from "@langfuse/shared";
 
 import type { MessagesContext } from "@/src/components/ChatMessages/types";
@@ -38,6 +40,9 @@ type PlaygroundContextType = {
 
   handleSubmit: () => Promise<void>;
   isStreaming: boolean;
+
+  functionCall: LLMFunctionCall | null;
+  updateFunctionCall: (functionCall: LLMFunctionCall) => void;
 } & ModelParamsContext &
   MessagesContext;
 
@@ -69,6 +74,8 @@ export const PlaygroundProvider: React.FC<PropsWithChildren> = ({
     createEmptyMessage(ChatMessageRole.System),
     createEmptyMessage(ChatMessageRole.User),
   ]);
+  const functionCallRef = useRef<LLMFunctionCall | null>(null);
+  const [functionCall, setFunctionCall] = useState<LLMFunctionCall | null>([]);
   const {
     modelParams,
     setModelParams,
@@ -87,6 +94,7 @@ export const PlaygroundProvider: React.FC<PropsWithChildren> = ({
       modelParams: cachedModelParams,
       output: cachedOutput,
       promptVariables: cachedPromptVariables,
+      functionCall: cachedFunctionCall,
     } = playgroundCache;
 
     setMessages(cachedMessages.map((m) => ({ ...m, id: uuidv4() })));
@@ -102,6 +110,11 @@ export const PlaygroundProvider: React.FC<PropsWithChildren> = ({
 
     if (cachedPromptVariables) {
       setPromptVariables(cachedPromptVariables);
+    }
+
+    if (cachedFunctionCall) {
+      functionCallRef.current = cachedFunctionCall;
+      setFunctionCall(cachedFunctionCall);
     }
   }, [playgroundCache, setModelParams]);
 
@@ -184,10 +197,13 @@ export const PlaygroundProvider: React.FC<PropsWithChildren> = ({
           throw Error("Error replacing variables. Please check your inputs.");
         }
 
+        const currentFunctionCall = functionCall;
+
         const completionStream = getChatCompletionStream(
           projectId,
           finalMessages,
           modelParams,
+          currentFunctionCall,
         );
 
         let response = "";
@@ -201,6 +217,7 @@ export const PlaygroundProvider: React.FC<PropsWithChildren> = ({
           modelParams,
           output: response,
           promptVariables,
+          functionCall: currentFunctionCall,
         });
         capture("playground:execute_button_click", {
           inputLength: finalMessages.length,
@@ -216,8 +233,7 @@ export const PlaygroundProvider: React.FC<PropsWithChildren> = ({
       } finally {
         setIsStreaming(false);
       }
-      // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [messages, modelParams, promptVariables]);
+    }, [messages, modelParams, promptVariables, functionCall]);
 
   useCommandEnter(!isStreaming, handleSubmit);
 
@@ -233,6 +249,22 @@ export const PlaygroundProvider: React.FC<PropsWithChildren> = ({
   const deletePromptVariable = useCallback((variable: string) => {
     setPromptVariables((prev) => prev.filter((v) => v.name !== variable));
   }, []);
+
+  const updateFunctionCall = useCallback(
+    (newFunctionCall: LLMFunctionCall | LLMFunctionCall[]) => {
+      const finalFunctionCall = Array.isArray(newFunctionCall)
+        ? newFunctionCall[0]
+        : newFunctionCall;
+
+      console.log("1. Setting functionCall:", finalFunctionCall);
+      setFunctionCall(finalFunctionCall);
+    },
+    [],
+  );
+
+  useEffect(() => {
+    console.log("2. FunctionCall updated:", functionCall);
+  }, [functionCall]);
 
   return (
     <PlaygroundContext.Provider
@@ -258,6 +290,9 @@ export const PlaygroundProvider: React.FC<PropsWithChildren> = ({
 
         availableProviders,
         availableModels,
+
+        functionCall,
+        updateFunctionCall,
       }}
     >
       {children}
@@ -269,6 +304,7 @@ async function* getChatCompletionStream(
   projectId: string | undefined,
   messages: ChatMessageWithId[],
   modelParams: UIModelParams,
+  functionCall: LLMFunctionCall | LLMFunctionCall[] | undefined,
 ) {
   if (!projectId) {
     console.error("Project ID is not set");
@@ -279,7 +315,13 @@ async function* getChatCompletionStream(
     projectId,
     messages,
     modelParams: getFinalModelParams(modelParams),
+    functions: functionCall
+      ? Array.isArray(functionCall)
+        ? functionCall
+        : [functionCall]
+      : undefined,
   });
+
   const result = await fetch(
     `${env.NEXT_PUBLIC_BASE_PATH ?? ""}/api/chatCompletion`,
     {
