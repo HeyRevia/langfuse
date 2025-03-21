@@ -19,7 +19,7 @@ const FunctionCallPanel = () => {
         <p className="text-sm font-medium">Function Call</p>
       </div>
       <CodeMirrorEditor
-        minHeight="200"
+        minHeight={200}
         value={JSON.stringify(functionCall, null, 2)}
         onChange={handleChange}
         editable
