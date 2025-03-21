@@ -41,7 +41,7 @@ type PlaygroundContextType = {
   handleSubmit: () => Promise<void>;
   isStreaming: boolean;
 
-  functionCall: LLMFunctionCall | LLMFunctionCall[] | null;
+  functionCall: LLMFunctionCall | LLMFunctionCall[] | undefined;
   updateFunctionCall: (
     functionCall: LLMFunctionCall | LLMFunctionCall[],
   ) => void;
@@ -76,11 +76,11 @@ export const PlaygroundProvider: React.FC<PropsWithChildren> = ({
     createEmptyMessage(ChatMessageRole.System),
     createEmptyMessage(ChatMessageRole.User),
   ]);
-  const functionCallRef = useRef<LLMFunctionCall | LLMFunctionCall[] | null>(
-    [],
-  );
+  const functionCallRef = useRef<
+    LLMFunctionCall | LLMFunctionCall[] | undefined
+  >([]);
   const [functionCall, setFunctionCall] = useState<
-    LLMFunctionCall | LLMFunctionCall[] | null
+    LLMFunctionCall | LLMFunctionCall[] | undefined
   >(functionCallRef.current);
   const {
     modelParams,
@@ -203,13 +203,11 @@ export const PlaygroundProvider: React.FC<PropsWithChildren> = ({
           throw Error("Error replacing variables. Please check your inputs.");
         }
 
-        const currentFunctionCall = functionCall;
-
         const completionStream = getChatCompletionStream(
           projectId,
           finalMessages,
           modelParams,
-          currentFunctionCall,
+          functionCall,
         );
 
         let response = "";
@@ -223,7 +221,7 @@ export const PlaygroundProvider: React.FC<PropsWithChildren> = ({
           modelParams,
           output: response,
           promptVariables,
-          functionCall: currentFunctionCall,
+          functionCall,
         });
         capture("playground:execute_button_click", {
           inputLength: finalMessages.length,
