@@ -70,6 +70,7 @@ export const createPrompt = async ({
     await promptService.buildAndResolvePromptGraph({
       projectId,
       parentPrompt: {
+        id: newPromptId,
         prompt,
         version: latestPrompt?.version ? latestPrompt.version + 1 : 1,
         name,
