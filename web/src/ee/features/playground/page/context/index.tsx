@@ -41,8 +41,10 @@ type PlaygroundContextType = {
   handleSubmit: () => Promise<void>;
   isStreaming: boolean;
 
-  functionCall: LLMFunctionCall | null;
-  updateFunctionCall: (functionCall: LLMFunctionCall) => void;
+  functionCall: LLMFunctionCall | LLMFunctionCall[] | null;
+  updateFunctionCall: (
+    functionCall: LLMFunctionCall | LLMFunctionCall[],
+  ) => void;
 } & ModelParamsContext &
   MessagesContext;
 
@@ -74,8 +76,12 @@ export const PlaygroundProvider: React.FC<PropsWithChildren> = ({
     createEmptyMessage(ChatMessageRole.System),
     createEmptyMessage(ChatMessageRole.User),
   ]);
-  const functionCallRef = useRef<LLMFunctionCall | null>(null);
-  const [functionCall, setFunctionCall] = useState<LLMFunctionCall | null>([]);
+  const functionCallRef = useRef<LLMFunctionCall | LLMFunctionCall[] | null>(
+    [],
+  );
+  const [functionCall, setFunctionCall] = useState<
+    LLMFunctionCall | LLMFunctionCall[] | null
+  >(functionCallRef.current);
   const {
     modelParams,
     setModelParams,
@@ -256,15 +262,10 @@ export const PlaygroundProvider: React.FC<PropsWithChildren> = ({
         ? newFunctionCall[0]
         : newFunctionCall;
 
-      console.log("1. Setting functionCall:", finalFunctionCall);
       setFunctionCall(finalFunctionCall);
     },
     [],
   );
-
-  useEffect(() => {
-    console.log("2. FunctionCall updated:", functionCall);
-  }, [functionCall]);
 
   return (
     <PlaygroundContext.Provider
