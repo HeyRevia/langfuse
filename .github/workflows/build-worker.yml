@@ -3,7 +3,7 @@ name: Build Server Image
 on:
   push:
     tags:
-      - web-**
+      - worker-**
 
 env:
   REGISTRY: ghcr.io
@@ -18,7 +18,7 @@ jobs:
     steps:
       - name: add env IMAGE_NAME to keep it lowercase
         run: |
-          echo "IMAGE_NAME=${GITHUB_REPOSITORY,,}-web" >>${GITHUB_ENV}
+          echo "IMAGE_NAME=${GITHUB_REPOSITORY,,}-worker" >>${GITHUB_ENV}
 
       - name: Checkout repository
         uses: actions/checkout@v3
@@ -36,14 +36,14 @@ jobs:
         with:
           images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
           tags: |
-            type=match,pattern=web-(.*),group=1
+            type=match,pattern=worker-(.*),group=1
             type=sha
 
       - name: Build and push Docker image
         uses: docker/build-push-action@v4
         with:
           context: .
-          file: ./web/Dockerfile
+          file: ./worker/Dockerfile
           push: true
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
