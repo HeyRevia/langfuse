@@ -173,6 +173,8 @@ export type LLMFunctionCall = {
   parameters: z.ZodTypeAny; // this has to be a json schema for OpenAI
 };
 
+export type LLMFunctionCallSchema = z.ZodType<LLMFunctionCall>;
+
 export const LLMApiKeySchema = z
   .object({
     id: z.string(),

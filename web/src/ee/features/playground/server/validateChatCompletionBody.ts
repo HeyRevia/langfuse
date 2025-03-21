@@ -1,5 +1,9 @@
 import { z } from "zod";
-import { ChatMessageRole, LLMAdapter } from "@langfuse/shared";
+import {
+  ChatMessageRole,
+  LLMAdapter,
+  LLMFunctionCallSchema,
+} from "@langfuse/shared";
 
 const ModelParamsSchema = z.object({
   provider: z.string(),
@@ -13,11 +17,6 @@ const MessageSchema = z.object({
   role: z.nativeEnum(ChatMessageRole),
   content: z.string(),
   id: z.string().optional(),
-});
-
-const LLMFunctionCallSchema = z.object({
-  name: z.string(),
-  parameters: z.record(z.any()),
 });
 
 export const ChatCompletionBodySchema = z.object({
