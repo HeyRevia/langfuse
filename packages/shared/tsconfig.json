@@ -8,7 +8,7 @@
     "outDir": "./dist",
     "types": ["node"],
     "target": "ES2020",
-    "rootDir": "src",
+    "rootDir": ".",
     "composite": true
   },
   "include": ["."],
