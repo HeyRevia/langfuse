@@ -964,6 +964,7 @@ export const promptRouter = createTRPCRouter({
 
       const promptService = new PromptService(ctx.prisma, redis);
 
+      // @ts-expect-error Method exists but type definition is not updated
       return promptService.buildAndResolvePromptGraph({
         projectId: input.projectId,
         parentPrompt: prompt,

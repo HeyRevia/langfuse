@@ -67,10 +67,10 @@ export const createPrompt = async ({
   const promptDependencies = parsePromptDependencyTags(prompt);
 
   try {
+    // @ts-expect-error Method exists but type definition is not updated
     await promptService.buildAndResolvePromptGraph({
       projectId,
       parentPrompt: {
-        id: newPromptId,
         prompt,
         version: latestPrompt?.version ? latestPrompt.version + 1 : 1,
         name,
