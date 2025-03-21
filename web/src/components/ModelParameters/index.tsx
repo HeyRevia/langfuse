@@ -33,9 +33,6 @@ export type ModelParamsContext = {
   setModelParamEnabled?: (key: keyof UIModelParams, enabled: boolean) => void;
   formDisabled?: boolean;
   modelParamsDescription?: string;
-
-  functionCall: LLMFunctionCall;
-  updateFunctionCall: (functionCall: LLMFunctionCall) => void;
 };
 
 export const ModelParameters: React.FC<ModelParamsContext> = ({
