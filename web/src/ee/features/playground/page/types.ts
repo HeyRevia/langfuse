@@ -11,5 +11,5 @@ export type PlaygroundCache = {
     Pick<UIModelParams, "provider" | "model">;
   output?: string | null;
   promptVariables?: PromptVariable[];
-  functionCall?: LLMFunctionCall[];
+  functionCall?: LLMFunctionCall | LLMFunctionCall[];
 } | null;

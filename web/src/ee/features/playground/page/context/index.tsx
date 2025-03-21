@@ -256,11 +256,7 @@ export const PlaygroundProvider: React.FC<PropsWithChildren> = ({
 
   const updateFunctionCall = useCallback(
     (newFunctionCall: LLMFunctionCall | LLMFunctionCall[]) => {
-      const finalFunctionCall = Array.isArray(newFunctionCall)
-        ? newFunctionCall[0]
-        : newFunctionCall;
-
-      setFunctionCall(finalFunctionCall);
+      setFunctionCall(newFunctionCall);
     },
     [],
   );
