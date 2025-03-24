@@ -207,7 +207,7 @@ export const PlaygroundProvider: React.FC<PropsWithChildren> = ({
           projectId,
           finalMessages,
           modelParams,
-          functionCall,
+          // functionCall,
         );
 
         let response = "";
