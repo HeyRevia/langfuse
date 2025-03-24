@@ -22,6 +22,22 @@ import {
 
 import { type LLMFunctionCall } from "@langfuse/shared";
 
+interface SimpleLLMFunctionCall {
+  name: string;
+  parameters: Record<string, unknown>;
+  description?: string;
+}
+
+function convertToLLMFunctionCall(
+  func: SimpleLLMFunctionCall,
+): LLMFunctionCall {
+  return {
+    name: func.name,
+    parameters: z.object(func.parameters as Record<string, z.ZodType>),
+    description: func.description,
+  };
+}
+
 export default async function chatCompletionHandler(req: NextRequest) {
   try {
     const body = validateChatCompletionBody(await req.json());
@@ -57,7 +73,7 @@ export default async function chatCompletionHandler(req: NextRequest) {
       extraHeaders: decryptAndParseExtraHeaders(parsedKey.data.extraHeaders),
       baseURL: parsedKey.data.baseURL || undefined,
       config: parsedKey.data.config,
-      functions: functions as LLMFunctionCall[],
+      functions: functions.map(convertToLLMFunctionCall),
     });
 
     return new StreamingTextResponse(completion);
