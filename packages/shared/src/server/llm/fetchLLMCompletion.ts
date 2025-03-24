@@ -268,29 +268,29 @@ export async function fetchLLMCompletion(
     runName: traceParams?.traceName,
   };
 
-  if (modelParams.adapter === LLMAdapter.OpenAI && functions?.length) {
-    const llm = chatModel.bindTools(
-      functions.map((f) => ({
-        type: "function",
-        function: {
-          name: f.name,
-          description: f.description,
-          parameters: f.parameters,
-        },
-      })),
-    );
+  // if (modelParams.adapter === LLMAdapter.OpenAI && functions?.length) {
+  //   const llm = chatModel.bindTools(
+  //     functions.map((f) => ({
+  //       type: "function",
+  //       function: {
+  //         name: f.name,
+  //         description: f.description,
+  //         parameters: f.parameters,
+  //       },
+  //     })),
+  //   );
 
-    const result = await llm.invoke(finalMessages, runConfig);
-    const functionResult: Record<string, any> = {};
-    result.tool_calls?.forEach((toolCall) => {
-      functionResult[toolCall.name] = toolCall.args;
-    });
+  //   const result = await llm.invoke(finalMessages, runConfig);
+  //   const functionResult: Record<string, any> = {};
+  //   result.tool_calls?.forEach((toolCall) => {
+  //     functionResult[toolCall.name] = toolCall.args;
+  //   });
 
-    return {
-      completion: JSON.stringify(functionResult),
-      processTracedEvents,
-    };
-  }
+  //   return {
+  //     completion: JSON.stringify(functionResult),
+  //     processTracedEvents,
+  //   };
+  // }
 
   try {
     if (params.structuredOutputSchema) {
