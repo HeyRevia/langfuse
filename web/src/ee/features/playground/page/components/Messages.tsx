@@ -4,6 +4,7 @@ import { usePlaygroundContext } from "@/src/ee/features/playground/page/context"
 import { GenerationOutput } from "./GenerationOutput";
 import { ChatMessages } from "@/src/components/ChatMessages";
 import { type MessagesContext } from "@/src/components/ChatMessages/types";
+import { FunctionCallPanel } from "./FunctionCallPanel";
 import {
   ResizableHandle,
   ResizablePanel,
@@ -16,6 +17,14 @@ export const Messages: React.FC<MessagesContext> = (props) => {
       <ResizablePanelGroup direction="vertical">
         <ResizablePanel minSize={10}>
           <ChatMessages {...props} />
+        </ResizablePanel>
+        <ResizableHandle withHandle className="bg-transparent" />
+        <ResizablePanel
+          minSize={10}
+          defaultSize={20}
+          className="flex flex-col space-y-4"
+        >
+          <FunctionCallPanel />
         </ResizablePanel>
         <ResizableHandle withHandle className="bg-transparent" />
         <ResizablePanel
