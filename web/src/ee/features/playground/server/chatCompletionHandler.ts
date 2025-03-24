@@ -19,6 +19,7 @@ import {
   fetchLLMCompletion,
   decryptAndParseExtraHeaders,
 } from "@langfuse/shared/src/server";
+import { z } from "zod";
 
 import { type LLMFunctionCall } from "@langfuse/shared";
 
