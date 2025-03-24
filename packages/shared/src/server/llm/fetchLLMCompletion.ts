@@ -31,6 +31,7 @@ import {
 } from "./types";
 import { CallbackHandler } from "langfuse-langchain";
 import type { BaseCallbackHandler } from "@langchain/core/callbacks/base";
+import { type LLMFunctionCall } from "./types";
 
 type ProcessTracedEvents = () => Promise<void>;
 
@@ -46,6 +47,7 @@ type LLMCompletionParams = {
   config?: Record<string, string> | null;
   traceParams?: TraceParams;
   throwOnError?: boolean; // default is true
+  functions?: LLMFunctionCall[];
 };
 
 type FetchLLMCompletionParams = LLMCompletionParams & {
@@ -96,6 +98,7 @@ export async function fetchLLMCompletion(
     traceParams,
     extraHeaders,
     throwOnError = true,
+    functions,
   } = params;
 
   let finalCallbacks: BaseCallbackHandler[] | undefined = callbacks ?? [];
@@ -177,7 +180,7 @@ export async function fetchLLMCompletion(
         baseURL,
         defaultHeaders: extraHeaders,
       },
-      timeout: 1000 * 60 * 2, // 2 minutes timeout
+      timeout: 1000 * 60 * 2,
     });
   } else if (modelParams.adapter === LLMAdapter.Azure) {
     chatModel = new ChatOpenAI({
@@ -265,6 +268,30 @@ export async function fetchLLMCompletion(
     runName: traceParams?.traceName,
   };
 
+  if (modelParams.adapter === LLMAdapter.OpenAI && functions?.length) {
+    const llm = chatModel.bindTools(
+      functions.map((f) => ({
+        type: "function",
+        function: {
+          name: f.name,
+          description: f.description,
+          parameters: f.parameters,
+        },
+      })),
+    );
+
+    const result = await llm.invoke(finalMessages, runConfig);
+    const functionResult: Record<string, any> = {};
+    result.tool_calls?.forEach((toolCall) => {
+      functionResult[toolCall.name] = toolCall.args;
+    });
+
+    return {
+      completion: JSON.stringify(functionResult),
+      processTracedEvents,
+    };
+  }
+
   try {
     if (params.structuredOutputSchema) {
       return {
@@ -336,6 +363,7 @@ export async function fetchLLMCompletion(
       processTracedEvents,
     };
   } catch (error) {
+    console.error("LLM call failed:", error);
     if (throwOnError) {
       throw error;
     }
