@@ -31,7 +31,7 @@ import {
 } from "./types";
 import { CallbackHandler } from "langfuse-langchain";
 import type { BaseCallbackHandler } from "@langchain/core/callbacks/base";
-import type { LLMFunctionCall } from "@langfuse/shared";
+import { type LLMFunctionCall } from "@langfuse/shared";
 
 type ProcessTracedEvents = () => Promise<void>;
 

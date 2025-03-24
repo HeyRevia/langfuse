@@ -20,6 +20,8 @@ import {
   decryptAndParseExtraHeaders,
 } from "@langfuse/shared/src/server";
 
+import { type LLMFunctionCall } from "@langfuse/shared";
+
 export default async function chatCompletionHandler(req: NextRequest) {
   try {
     const body = validateChatCompletionBody(await req.json());
@@ -55,7 +57,7 @@ export default async function chatCompletionHandler(req: NextRequest) {
       extraHeaders: decryptAndParseExtraHeaders(parsedKey.data.extraHeaders),
       baseURL: parsedKey.data.baseURL || undefined,
       config: parsedKey.data.config,
-      functions: functions as any,
+      functions: functions as LLMFunctionCall[],
     });
 
     return new StreamingTextResponse(completion);
