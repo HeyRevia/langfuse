@@ -85,7 +85,7 @@ function ErrorCompletionHandler(status: number, statusText: string) {
 }
 
 function NetworkErrorCompletionHandler() {
-  return CompletionHandler(HttpResponse.error());
+  return CompletionHandler(HttpResponse.error() as any);
 }
 
 export class OpenAIServer {
