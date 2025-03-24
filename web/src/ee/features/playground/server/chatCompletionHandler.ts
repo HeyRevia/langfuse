@@ -35,7 +35,7 @@ function convertToLLMFunctionCall(
   return {
     name: func.name,
     parameters: z.object(func.parameters as Record<string, z.ZodType>),
-    description: func.description,
+    description: func.description || "",
   };
 }
 
