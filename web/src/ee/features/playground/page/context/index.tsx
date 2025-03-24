@@ -237,6 +237,7 @@ export const PlaygroundProvider: React.FC<PropsWithChildren> = ({
       } finally {
         setIsStreaming(false);
       }
+      // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [messages, modelParams, promptVariables, functionCall]);
 
   useCommandEnter(!isStreaming, handleSubmit);
