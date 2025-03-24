@@ -268,7 +268,7 @@ export async function fetchLLMCompletion(
     runName: traceParams?.traceName,
   };
 
-  if (modelParams.adapter === LLMAdapter.OpenAI && functions?.length) {
+  if (functions?.length) {
     const llm = chatModel.bindTools(
       functions.map((f) => ({
         type: "function",
