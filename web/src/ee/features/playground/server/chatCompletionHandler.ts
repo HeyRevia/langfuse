@@ -74,7 +74,7 @@ export default async function chatCompletionHandler(req: NextRequest) {
       extraHeaders: decryptAndParseExtraHeaders(parsedKey.data.extraHeaders),
       baseURL: parsedKey.data.baseURL || undefined,
       config: parsedKey.data.config,
-      functions: functions.map(convertToLLMFunctionCall),
+      functions: functions?.map(convertToLLMFunctionCall),
     });
 
     return new StreamingTextResponse(completion);
