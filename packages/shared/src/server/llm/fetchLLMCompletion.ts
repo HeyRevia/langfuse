@@ -47,7 +47,7 @@ type LLMCompletionParams = {
   config?: Record<string, string> | null;
   traceParams?: TraceParams;
   throwOnError?: boolean; // default is true
-  functions?: LLMFunctionCall[];
+  tool_calls?: any[];
 };
 
 type FetchLLMCompletionParams = LLMCompletionParams & {
@@ -98,7 +98,7 @@ export async function fetchLLMCompletion(
     traceParams,
     extraHeaders,
     throwOnError = true,
-    functions,
+    tool_calls,
   } = params;
 
   let finalCallbacks: BaseCallbackHandler[] | undefined = callbacks ?? [];
@@ -268,17 +268,8 @@ export async function fetchLLMCompletion(
     runName: traceParams?.traceName,
   };
 
-  if (functions?.length) {
-    const llm = chatModel.bindTools(
-      functions.map((f) => ({
-        type: "function",
-        function: {
-          name: f.name,
-          description: f.description,
-          parameters: f.parameters,
-        },
-      })),
-    );
+  if (tool_calls?.length && modelParams.adapter === LLMAdapter.OpenAI) {
+    const llm = chatModel.bindTools(tool_calls);
 
     const result = await llm.invoke(finalMessages, runConfig);
     const functionResult: Record<string, any> = {};

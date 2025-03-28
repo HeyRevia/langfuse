@@ -279,6 +279,8 @@ export const createExperimentJob = async ({
       },
     };
 
+    const tool_calls = (prompt.config as any)?.tools;
+
     await backOff(
       async () =>
         await callLLM(
@@ -288,6 +290,7 @@ export const createExperimentJob = async ({
           provider,
           model,
           traceParams,
+          tool_calls,
         ),
       {
         numOfAttempts: 1, // turn off retries as Langchain is doing that for us already.
