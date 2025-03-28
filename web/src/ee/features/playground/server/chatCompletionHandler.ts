@@ -27,7 +27,14 @@ export default async function chatCompletionHandler(req: NextRequest) {
     const body = validateChatCompletionBody(await req.json());
     const { userId } = await authorizeRequestOrThrow(body.projectId);
 
-    const { messages, modelParams, functions } = body;
+    const { messages, modelParams, config } = body;
+    let tool_calls = [];
+    if (config && config.tools) {
+      tool_calls = config.tools.map((tool: any) => ({
+        type: "function",
+        function: tool,
+      }));
+    }
 
     const LLMApiKey = await prisma.llmApiKeys.findFirst({
       where: {
@@ -57,7 +64,7 @@ export default async function chatCompletionHandler(req: NextRequest) {
       extraHeaders: decryptAndParseExtraHeaders(parsedKey.data.extraHeaders),
       baseURL: parsedKey.data.baseURL || undefined,
       config: parsedKey.data.config,
-      functions: functions as any,
+      tool_calls,
     });
 
     return new StreamingTextResponse(completion);
