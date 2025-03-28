@@ -63,6 +63,13 @@ export async function callLLM(
   traceParams?: Omit<TraceParams, "tokenCountDelegate">,
   tool_calls?: any[],
 ): Promise<string> {
+  if (tool_calls) {
+    tool_calls = tool_calls.map((tool) => ({
+      type: "function",
+      function: tool,
+    }));
+  }
+
   const { completion, processTracedEvents } = await fetchLLMCompletion({
     streaming: false,
     apiKey: decrypt(llmApiKey.secretKey),
