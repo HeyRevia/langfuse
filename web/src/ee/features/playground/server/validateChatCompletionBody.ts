@@ -23,7 +23,7 @@ export const ChatCompletionBodySchema = z.object({
   projectId: z.string(),
   messages: z.array(MessageSchema),
   modelParams: ModelParamsSchema,
-  functions: z.array(LLMFunctionCallSchema).optional(),
+  config: z.any(),
 });
 
 export const validateChatCompletionBody = (input: unknown) => {

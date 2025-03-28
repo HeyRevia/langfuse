@@ -51,6 +51,9 @@ export const JumpToPlaygroundButton: React.FC<JumpToPlaygroundButtonProps> = (
   const [isAvailable, setIsAvailable] = useState<boolean>(false);
   const isEntitled = useHasEntitlement("playground");
 
+  console.log({
+    props,
+  });
   useEffect(() => {
     if (props.source === "prompt") {
       setCapturedState(parsePrompt(props.prompt));
@@ -125,10 +128,11 @@ const parsePrompt = (prompt: Prompt): PlaygroundCache => {
   if (prompt.type === PromptType.Chat) {
     const parsedMessages = ParsedChatMessageListSchema.safeParse(prompt.prompt);
 
-    return parsedMessages.success ? { messages: parsedMessages.data } : null;
+    return parsedMessages.success
+      ? { messages: parsedMessages.data, config: prompt.config }
+      : null;
   } else {
     const promptString = prompt.prompt?.valueOf();
-
     return {
       messages: [
         createEmptyMessage(
@@ -136,6 +140,7 @@ const parsePrompt = (prompt: Prompt): PlaygroundCache => {
           typeof promptString === "string" ? promptString : "",
         ),
       ],
+      config: prompt.config,
     };
   }
 };

@@ -12,4 +12,5 @@ export type PlaygroundCache = {
   output?: string | null;
   promptVariables?: PromptVariable[];
   functionCall?: LLMFunctionCall | LLMFunctionCall[];
+  config?: any;
 } | null;
