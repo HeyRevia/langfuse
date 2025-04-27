@@ -85,7 +85,7 @@ function ErrorCompletionHandler(status: number, statusText: string) {
 }
 
 function NetworkErrorCompletionHandler() {
-  return CompletionHandler(HttpResponse.error());
+  return ErrorCompletionHandler(500, "Internal Server Error");
 }
 
 export class OpenAIServer {
