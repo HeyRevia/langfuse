@@ -146,7 +146,7 @@ export async function fetchLLMCompletion(
 
     processTracedEvents = async () => {
       try {
-        let events = await handler.langfuse._exportLocalEvents(
+        const events = await handler.langfuse._exportLocalEvents(
           traceParams.projectId,
         );
         await processEventBatch(
