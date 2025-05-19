@@ -30,6 +30,7 @@ import {
   StorageService,
   StorageServiceFactory,
 } from "../services/StorageService";
+import { OpenAIToolCallSchema, LLMToolCallChunkPrefix } from "../llm/types";
 
 let s3StorageServiceClient: StorageService;
 
@@ -220,6 +221,90 @@ export const processEventBatch = async (
         // That way we batch updates from the same invocation into a single file and reduce
         // write operations on S3.
         const { data, key, type, eventBodyId } = sortedBatchByEventBodyId[id];
+        if (data.length > 0) {
+          const allToolCalls = data.flatMap(
+            (item) => item.body?.output?.additional_kwargs?.tool_calls ?? [],
+          );
+          const uniqueToolCalls = allToolCalls.filter(
+            (toolCall, index, self) =>
+              index === self.findIndex((t) => t.id === toolCall.id),
+          );
+
+          logger.info(
+            `uniqueToolCalls: ${JSON.stringify(uniqueToolCalls, null, 2)}`,
+          );
+          const toolCallsMap = new Map<string, OpenAIToolCallSchema>();
+          const toolCallsToMerge = uniqueToolCalls.filter((toolCall) =>
+            toolCall.function.name.startsWith(LLMToolCallChunkPrefix),
+          );
+
+          allToolCalls.forEach((toolCall) => {
+            if (!toolCall.function.name.startsWith(LLMToolCallChunkPrefix)) {
+              toolCallsMap.set(toolCall.function.name, toolCall);
+            }
+          });
+
+          if (toolCallsToMerge.length > 0) {
+            toolCallsToMerge.forEach((toolCall) => {
+              const originalToolCallName = toolCall.function.name
+                .split("_")
+                .slice(1)
+                .join("_");
+
+              if (!toolCallsMap.has(originalToolCallName)) {
+                toolCallsMap.set(originalToolCallName, {
+                  ...toolCall,
+                  function: {
+                    ...toolCall.function,
+                    name: originalToolCallName,
+                  },
+                });
+              } else {
+                const mergedToolCall = toolCallsMap.get(originalToolCallName);
+                if (mergedToolCall) {
+                  let originalArgs = mergedToolCall.function.arguments;
+                  let newArgs = toolCall.function.arguments;
+                  if (typeof originalArgs === "string") {
+                    originalArgs = JSON.parse(originalArgs);
+                  }
+                  if (typeof newArgs === "string") {
+                    newArgs = JSON.parse(newArgs);
+                  }
+
+                  const mergedArgs = {
+                    ...originalArgs,
+                    ...newArgs,
+                  };
+                  toolCallsMap.set(originalToolCallName, {
+                    ...mergedToolCall,
+                    function: {
+                      ...mergedToolCall.function,
+                      arguments: mergedArgs,
+                    },
+                  });
+                }
+              }
+            });
+          }
+
+          if (toolCallsMap.size > 0) {
+            data.forEach((item) => {
+              if (item.body?.output?.additional_kwargs?.tool_calls) {
+                item.body.output.additional_kwargs.tool_calls = Array.from(
+                  toolCallsMap.values(),
+                );
+              }
+            });
+          }
+
+          logger.info(
+            `toolCallsMap: ${JSON.stringify(
+              Object.fromEntries(toolCallsMap),
+              null,
+              2,
+            )}`,
+          );
+        }
         const bucketPath = `${env.LANGFUSE_S3_EVENT_UPLOAD_PREFIX}${authCheck.scope.projectId}/${getClickhouseEntityType(type)}/${eventBodyId}/${key}.json`;
         return getS3StorageServiceClient(
           env.LANGFUSE_S3_EVENT_UPLOAD_BUCKET,

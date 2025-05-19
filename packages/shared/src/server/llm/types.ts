@@ -39,10 +39,31 @@ export const JSONSchemaFormSchema = z
       .transform((data) => JSON.stringify(data, null, 2)),
   );
 
+export const LLMToolChunkByPropertyCountConfigSchema = z.object({
+  propertyCount: z.number(),
+});
+export type LLMToolChunkByPropertyCountConfig = z.infer<
+  typeof LLMToolChunkByPropertyCountConfigSchema
+>;
+
+export const LLMToolChunkByPropertyGroupConfigSchema = z.object({
+  propertyGroup: z.array(z.array(z.string())),
+});
+export type LLMToolChunkByPropertyGroupConfig = z.infer<
+  typeof LLMToolChunkByPropertyGroupConfigSchema
+>;
+
+export const LLMToolChunkConfigSchema = z.union([
+  LLMToolChunkByPropertyCountConfigSchema,
+  LLMToolChunkByPropertyGroupConfigSchema,
+]);
+export type LLMToolChunkConfig = z.infer<typeof LLMToolChunkConfigSchema>;
+
 export const LLMToolDefinitionSchema = z.object({
   name: z.string(),
   description: z.string(),
   parameters: LLMJSONSchema,
+  chunks_config: LLMToolChunkConfigSchema.optional(),
 });
 export type LLMToolDefinition = z.infer<typeof LLMToolDefinitionSchema>;
 
@@ -433,3 +454,5 @@ export type TraceParams = {
   tokenCountDelegate: TokenCountDelegate;
   authCheck: AuthHeaderValidVerificationResult;
 };
+
+export const LLMToolCallChunkPrefix = "tool-call-chunk";
