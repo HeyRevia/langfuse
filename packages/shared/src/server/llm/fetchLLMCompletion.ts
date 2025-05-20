@@ -22,6 +22,7 @@ import GCPServiceAccountKeySchema, {
   BedrockCredentialSchema,
 } from "../../interfaces/customLLMProviderConfigSchemas";
 import { processEventBatch } from "../ingestion/processEventBatch";
+import { ingestionEvent, eventTypes, TraceBody } from "../ingestion/types";
 import { logger } from "../logger";
 import {
   ChatMessage,
@@ -29,14 +30,22 @@ import {
   ChatMessageType,
   LLMAdapter,
   LLMJSONSchema,
+  LLMToolCall,
+  LLMToolChunkConfig,
+  LLMToolChunkByPropertyCountConfig,
+  LLMToolChunkByPropertyGroupConfig,
+  LLMToolChunkByPropertyCountConfigSchema,
+  LLMToolChunkByPropertyGroupConfigSchema,
   LLMToolDefinition,
   ModelParams,
   ToolCallResponse,
   ToolCallResponseSchema,
   TraceParams,
+  LLMToolCallChunkPrefix,
 } from "./types";
 import { CallbackHandler } from "langfuse-langchain";
 import type { BaseCallbackHandler } from "@langchain/core/callbacks/base";
+import { z } from "zod";
 
 type ProcessTracedEvents = () => Promise<void>;
 
@@ -132,6 +141,7 @@ export async function fetchLLMCompletion(
       _isLocalEventExportEnabled: true,
       tags: traceParams.tags,
     });
+    // handler.debug(true);
     finalCallbacks.push(handler);
 
     processTracedEvents = async () => {
@@ -362,20 +372,35 @@ export async function fetchLLMCompletion(
     }
 
     if (tools && tools.length > 0) {
-      const langchainTools = tools.map((tool) => ({
-        type: "function",
-        function: tool,
-      }));
+      const batchSize = 2;
+      const toolBatches = chunkArray(splitTools(tools), batchSize);
 
-      const result = await chatModel
-        .bindTools(langchainTools)
-        .invoke(finalMessages, runConfig);
+      let allToolCalls: LLMToolCall[] = [];
+      let allContents: any[] = [];
 
-      const parsed = ToolCallResponseSchema.safeParse(result);
-      if (!parsed.success) throw Error("Failed to parse LLM tool call result");
+      for (const batch of toolBatches) {
+        const langchainTools = batch.map((tool) => ({
+          type: "function",
+          function: tool,
+        }));
+
+        const result = await chatModel
+          .bindTools(langchainTools)
+          .invoke(finalMessages, runConfig);
+
+        const parsed = ToolCallResponseSchema.safeParse(result);
+        if (!parsed.success)
+          throw Error("Failed to parse LLM tool call result");
+
+        allToolCalls.push(...(parsed.data.tool_calls || []));
+        allContents.push(parsed.data.content);
+      }
 
       return {
-        completion: parsed.data,
+        completion: {
+          content: allContents,
+          tool_calls: mergeToolCalls(allToolCalls),
+        },
         processTracedEvents,
       };
     }
@@ -402,4 +427,126 @@ export async function fetchLLMCompletion(
 
     return { completion: "", processTracedEvents };
   }
+}
+
+function splitTools(tools: LLMToolDefinition[]): LLMToolDefinition[] {
+  const result: LLMToolDefinition[] = [];
+  for (const tool of tools) {
+    if (
+      tool.chunks_config &&
+      "properties" in tool.parameters &&
+      typeof tool.parameters.properties === "object"
+    ) {
+      const propertyNames = Object.keys(
+        tool.parameters.properties as Record<string, unknown>,
+      );
+      const toolName = tool.name;
+
+      let propertyNameGroups: string[][] = [];
+
+      if (
+        LLMToolChunkByPropertyCountConfigSchema.safeParse(tool.chunks_config)
+          .success
+      ) {
+        const propertyCountChunkConfig =
+          tool.chunks_config as LLMToolChunkByPropertyCountConfig;
+        propertyNameGroups = chunkArray(
+          propertyNames,
+          propertyCountChunkConfig.propertyCount,
+        );
+      } else if (
+        LLMToolChunkByPropertyGroupConfigSchema.safeParse(tool.chunks_config)
+          .success
+      ) {
+        const propertyGroupChunkConfig =
+          tool.chunks_config as LLMToolChunkByPropertyGroupConfig;
+        let remainingPropertyNames = propertyNames;
+        let chunksGroups = [];
+
+        for (const group of propertyGroupChunkConfig.propertyGroup) {
+          const validProperties = group.filter((property) =>
+            remainingPropertyNames.includes(property),
+          );
+
+          if (validProperties.length > 0) {
+            chunksGroups.push(validProperties);
+            remainingPropertyNames = remainingPropertyNames.filter(
+              (property) => !validProperties.includes(property),
+            );
+          }
+        }
+
+        if (remainingPropertyNames.length > 0) {
+          chunksGroups.push(remainingPropertyNames);
+        }
+
+        propertyNameGroups = chunksGroups;
+      }
+
+      if (propertyNameGroups.length > 0) {
+        let i = 0;
+        for (const group of propertyNameGroups) {
+          result.push({
+            ...tool,
+            name: `${LLMToolCallChunkPrefix}${i}_${toolName}`,
+            parameters: {
+              ...tool.parameters,
+              properties: Object.fromEntries(
+                group.map((property) => [
+                  property,
+                  (tool.parameters.properties as Record<string, unknown>)[
+                    property
+                  ],
+                ]),
+              ),
+            },
+          });
+          i++;
+        }
+      }
+    } else {
+      result.push(tool);
+    }
+  }
+
+  return result;
+}
+
+function mergeToolCalls(toolCalls: LLMToolCall[]): LLMToolCall[] {
+  const result: LLMToolCall[] = toolCalls.filter(
+    (toolCall) => !toolCall.name.startsWith(LLMToolCallChunkPrefix),
+  );
+
+  const splitToolCalls = toolCalls.filter((toolCall) =>
+    toolCall.name.startsWith(LLMToolCallChunkPrefix),
+  );
+
+  const mergedToolCalls: Record<string, LLMToolCall> = {};
+  for (const toolCall of splitToolCalls) {
+    const originalToolName = toolCall.name.split("_").slice(1).join("_");
+    if (!mergedToolCalls[originalToolName]) {
+      mergedToolCalls[originalToolName] = {
+        name: originalToolName,
+        id: toolCall.id,
+        args: {
+          ...toolCall.args,
+        },
+      };
+    } else {
+      mergedToolCalls[originalToolName].args = {
+        ...mergedToolCalls[originalToolName].args,
+        ...toolCall.args,
+      };
+    }
+  }
+
+  return result.concat(Object.values(mergedToolCalls));
+}
+
+function chunkArray<T>(arr: T[], size: number): T[][] {
+  const res: T[][] = [];
+  for (let i = 0; i < arr.length; i += size) {
+    res.push(arr.slice(i, i + size));
+  }
+  return res;
 }
