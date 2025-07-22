@@ -28,6 +28,7 @@ import {
   PromptType,
   QUEUE_ERROR_MESSAGES,
   stringifyValue,
+  type LLMToolDefinition,
 } from "@langfuse/shared";
 import { backOff } from "exponential-backoff";
 import { callLLM, compileHandlebarString } from "../../features/utils";
@@ -278,10 +279,13 @@ export const createExperimentJob = async ({
     .filter(({ input }) => validateDatasetItem(input, allVariables))
     .map((datasetItem) => ({
       ...datasetItem,
-      input: parseDatasetItemInput(
-        datasetItem.input as Prisma.JsonObject, // this is safe because we already filtered for valid input
-        allVariables,
-      ),
+      input: {
+        ...parseDatasetItemInput(
+          datasetItem.input as Prisma.JsonObject, // this is safe because we already filtered for valid input
+          allVariables,
+        ),
+        tools: (datasetItem.input as unknown as any).tools,
+      },
     }));
 
   logger.info(
@@ -365,6 +369,17 @@ export const createExperimentJob = async ({
       },
     };
 
+    let tools = (prompt.config as unknown as any)?.tools;
+    if ((datasetItem.input as unknown as any)?.tools) {
+      tools = (datasetItem.input as unknown as any).tools;
+    }
+
+    const toolDefinitions = tools?.map(
+      (tool: { type: string; function: LLMToolDefinition }) => ({
+        ...(tool.function as LLMToolDefinition),
+      }),
+    );
+
     await backOff(
       async () =>
         await callLLM(
@@ -374,6 +389,7 @@ export const createExperimentJob = async ({
           provider,
           model,
           traceParams,
+          toolDefinitions,
         ),
       {
         numOfAttempts: 1, // turn off retries as Langchain is doing that for us already.
