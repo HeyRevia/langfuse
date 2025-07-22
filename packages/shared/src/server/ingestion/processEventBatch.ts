@@ -222,9 +222,19 @@ export const processEventBatch = async (
         // write operations on S3.
         const { data, key, type, eventBodyId } = sortedBatchByEventBodyId[id];
         if (data.length > 0) {
-          const allToolCalls = data.flatMap(
-            (item) => item.body?.output?.additional_kwargs?.tool_calls ?? [],
-          );
+          const allToolCalls = data.flatMap((item) => {
+            if ("output" in item.body) {
+              const output = item.body?.output as unknown as
+                | {
+                    additional_kwargs: { tool_calls: OpenAIToolCallSchema[] };
+                  }
+                | undefined;
+              if (output?.additional_kwargs?.tool_calls) {
+                return output.additional_kwargs.tool_calls;
+              }
+            }
+            return [];
+          });
           const uniqueToolCalls = allToolCalls.filter(
             (toolCall, index, self) =>
               index === self.findIndex((t) => t.id === toolCall.id),
@@ -289,10 +299,18 @@ export const processEventBatch = async (
 
           if (toolCallsMap.size > 0) {
             data.forEach((item) => {
-              if (item.body?.output?.additional_kwargs?.tool_calls) {
-                item.body.output.additional_kwargs.tool_calls = Array.from(
-                  toolCallsMap.values(),
-                );
+              if ("output" in item.body) {
+                const output = item.body?.output as unknown as
+                  | {
+                      additional_kwargs: { tool_calls: OpenAIToolCallSchema[] };
+                    }
+                  | undefined;
+                if (output?.additional_kwargs?.tool_calls) {
+                  output.additional_kwargs.tool_calls = Array.from(
+                    toolCallsMap.values(),
+                  );
+                }
+                item.body.output = output;
               }
             });
           }
