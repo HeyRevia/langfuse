@@ -5,7 +5,13 @@ import {
   logger,
   type TraceParams,
 } from "@langfuse/shared/src/server";
-import { ApiError, LLMApiKeySchema, ZodModelConfig } from "@langfuse/shared";
+import {
+  ApiError,
+  LLMApiKeySchema,
+  ZodModelConfig,
+  type LLMToolDefinition,
+  type ToolCallResponse,
+} from "@langfuse/shared";
 import { z } from "zod/v4";
 import { z as zodV3 } from "zod/v3";
 import { ZodSchema as ZodV3Schema } from "zod/v3";
@@ -82,7 +88,8 @@ export async function callLLM(
   provider: string,
   model: string,
   traceParams?: Omit<TraceParams, "tokenCountDelegate">,
-): Promise<string> {
+  tools?: LLMToolDefinition[],
+): Promise<string | ToolCallResponse> {
   return withLLMErrorHandling(async () => {
     const { completion, processTracedEvents } = await fetchLLMCompletion({
       streaming: false,
@@ -102,6 +109,7 @@ export async function callLLM(
         : undefined,
       maxRetries: 1,
       throwOnError: false,
+      tools: tools ?? [],
     });
 
     if (traceParams) {

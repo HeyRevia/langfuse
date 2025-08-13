@@ -23,6 +23,7 @@ import {
   validateAndSetupExperiment,
   validateDatasetItem,
 } from "./utils";
+import { type LLMToolDefinition } from "@langfuse/shared";
 
 export const createExperimentJobPostgres = async ({
   event,
@@ -60,10 +61,13 @@ export const createExperimentJobPostgres = async ({
     )
     .map((datasetItem) => ({
       ...datasetItem,
-      input: parseDatasetItemInput(
-        datasetItem.input as Prisma.JsonObject, // this is safe because we already filtered for valid input
-        experimentConfig.allVariables,
-      ),
+      input: {
+        ...parseDatasetItemInput(
+          datasetItem.input as Prisma.JsonObject, // this is safe because we already filtered for valid input
+          experimentConfig.allVariables,
+        ),
+        tools: (datasetItem.input as unknown as any)?.tools,
+      },
     }));
 
   logger.info(
@@ -147,6 +151,17 @@ export const createExperimentJobPostgres = async ({
         },
       };
 
+      let tools = (experimentConfig.prompt.config as unknown as any)?.tools;
+      if ((datasetItem.input as unknown as any)?.tools) {
+        tools = (datasetItem.input as unknown as any)?.tools;
+      }
+
+      const toolDefinitions = tools?.map(
+        (tool: { type: string; function: LLMToolDefinition }) => ({
+          ...(tool.function as LLMToolDefinition),
+        }),
+      );
+
       await backOff(
         async () =>
           await callLLM(
@@ -156,6 +171,7 @@ export const createExperimentJobPostgres = async ({
             experimentConfig.provider,
             experimentConfig.model,
             traceParams,
+            toolDefinitions,
           ),
         {
           numOfAttempts: 1, // turn off retries as Langchain is doing that for us already.
