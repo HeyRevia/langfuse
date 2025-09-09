@@ -227,15 +227,18 @@ async function getItemsToProcess(
     orderBy: [{ createdAt: "desc" }, { id: "asc" }],
   });
 
-  // Filter and validate dataset items
+  // validate dataset items against prompt configuration
   const validatedDatasetItems = datasetItems
     .filter(({ input }) => validateDatasetItem(input, config.allVariables))
     .map((datasetItem) => ({
       ...datasetItem,
-      input: parseDatasetItemInput(
-        datasetItem.input as Prisma.JsonObject,
-        config.allVariables,
-      ),
+      input: {
+        ...parseDatasetItemInput(
+          datasetItem.input as Prisma.JsonObject, // this is safe because we already filtered for valid input
+          config.allVariables,
+        ),
+        tools: (datasetItem.input as unknown as any)?.tools,
+      },
     }));
 
   if (!validatedDatasetItems.length) {
