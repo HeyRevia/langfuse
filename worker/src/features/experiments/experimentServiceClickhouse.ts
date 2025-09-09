@@ -25,6 +25,7 @@ import {
 import { backOff } from "exponential-backoff";
 import { callLLM } from "../utils";
 import { randomUUID } from "crypto";
+import { type LLMToolDefinition } from "@langfuse/shared";
 
 async function getExistingRunItemDatasetItemIds(
   projectId: string,
@@ -180,6 +181,17 @@ async function processLLMCall(
     },
   };
 
+  let tools = (config.prompt.config as unknown as any)?.tools;
+  if ((datasetItem.input as unknown as any)?.tools) {
+    tools = (datasetItem.input as unknown as any)?.tools;
+  }
+
+  const toolDefinitions = tools?.map(
+    (tool: { type: string; function: LLMToolDefinition }) => ({
+      ...(tool.function as LLMToolDefinition),
+    }),
+  );
+
   await backOff(
     async () =>
       await callLLM(
@@ -189,6 +201,7 @@ async function processLLMCall(
         config.provider,
         config.model,
         traceParams,
+        toolDefinitions,
       ),
     {
       numOfAttempts: 1, // Turn off retries as Langchain handles this
