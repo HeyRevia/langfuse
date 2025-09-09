@@ -231,6 +231,7 @@ export async function fetchLLMCompletion(
   // Common proxy configuration for all adapters
   const proxyUrl = env.HTTPS_PROXY;
   const proxyAgent = proxyUrl ? new HttpsProxyAgent(proxyUrl) : undefined;
+  const timeoutMs = env.LANGFUSE_FETCH_LLM_COMPLETION_TIMEOUT_MS;
 
   let chatModel:
     | ChatOpenAI
@@ -249,9 +250,10 @@ export async function fetchLLMCompletion(
       callbacks: finalCallbacks,
       clientOptions: {
         maxRetries,
-        timeout: 1000 * 60 * 2, // 2 minutes timeout
+        timeout: timeoutMs,
         ...(proxyAgent && { httpAgent: proxyAgent }),
       },
+      invocationKwargs: modelParams.providerOptions,
     });
   } else if (modelParams.adapter === LLMAdapter.OpenAI) {
     chatModel = new ChatOpenAI({
@@ -268,7 +270,8 @@ export async function fetchLLMCompletion(
         defaultHeaders: extraHeaders,
         ...(proxyAgent && { httpAgent: proxyAgent }),
       },
-      timeout: 1000 * 60 * 2, // 2 minutes timeout
+      modelKwargs: modelParams.providerOptions,
+      timeout: timeoutMs,
     });
   } else if (modelParams.adapter === LLMAdapter.Azure) {
     chatModel = new AzureChatOpenAI({
@@ -281,11 +284,12 @@ export async function fetchLLMCompletion(
       topP: modelParams.top_p,
       callbacks: finalCallbacks,
       maxRetries,
-      timeout: 1000 * 60 * 2, // 2 minutes timeout
+      timeout: timeoutMs,
       configuration: {
         defaultHeaders: extraHeaders,
         ...(proxyAgent && { httpAgent: proxyAgent }),
       },
+      modelKwargs: modelParams.providerOptions,
     });
   } else if (modelParams.adapter === LLMAdapter.Bedrock) {
     const { region } = BedrockConfigSchema.parse(config);
@@ -304,7 +308,8 @@ export async function fetchLLMCompletion(
       topP: modelParams.top_p,
       callbacks: finalCallbacks,
       maxRetries,
-      timeout: 1000 * 60 * 2, // 2 minutes timeout
+      timeout: timeoutMs,
+      additionalModelRequestFields: modelParams.providerOptions as any,
     });
   } else if (modelParams.adapter === LLMAdapter.VertexAI) {
     const credentials = GCPServiceAccountKeySchema.parse(JSON.parse(apiKey));
@@ -357,52 +362,6 @@ export async function fetchLLMCompletion(
         completion: await (chatModel as ChatOpenAI) // Typecast necessary due to https://github.com/langchain-ai/langchainjs/issues/6795
           .withStructuredOutput(params.structuredOutputSchema)
           .invoke(finalMessages, runConfig),
-        processTracedEvents,
-      };
-    }
-
-    /*
-  Workaround OpenAI reasoning models:
-
-  This is a temporary workaround to avoid sending unsupported parameters to OpenAI's O1 models.
-  O1 models do not support:
-  - system messages
-  - top_p
-  - max_tokens at all, one has to use max_completion_tokens instead
-  - temperature different than 1
-
-  Reference: https://platform.openai.com/docs/guides/reasoning/beta-limitations
-  */
-    if (
-      modelParams.model.startsWith("o1-") ||
-      modelParams.model.startsWith("o3-")
-    ) {
-      const filteredMessages = finalMessages.filter((message) => {
-        return (
-          modelParams.model.startsWith("o3-") || message._getType() !== "system"
-        );
-      });
-
-      return {
-        completion: await new ChatOpenAI({
-          openAIApiKey: apiKey,
-          modelName: modelParams.model,
-          temperature: 1,
-          maxTokens: undefined,
-          topP: undefined,
-          callbacks,
-          maxRetries,
-          modelKwargs: {
-            max_completion_tokens: modelParams.max_tokens,
-          },
-          configuration: {
-            baseURL,
-            ...(proxyAgent && { httpAgent: proxyAgent }),
-          },
-          timeout: 1000 * 60 * 2, // 2 minutes timeout
-        })
-          .pipe(new StringOutputParser())
-          .invoke(filteredMessages, runConfig),
         processTracedEvents,
       };
     }
